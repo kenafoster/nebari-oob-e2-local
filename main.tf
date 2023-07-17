@@ -113,9 +113,11 @@ resource "aws_instance" "nebari_sandbox_ec2" {
     volume_size           = var.nebari_disk_size
   }
 
-  # User data - install Docker
+  # User data - install Docker and Nebari
   user_data = <<EOF
 #!/bin/bash
+
+# Install Docker
 apt-get update
 apt-get -y install ca-certificates curl gnupg
 install -m 0755 -d /etc/apt/keyrings
@@ -128,6 +130,19 @@ echo \
 apt-get update
 apt-get -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 usermod -a -G docker ubuntu
+
+# Install and Deploy Nebari
+apt-get -y install python3-pip
+python3 -m pip install nebari
+mkdir nebari-local
+cd nebari-local
+nebari init local \
+ --project sandbox-nebari \
+ --domain nebari-sandbox.local \
+ --auth-provider password \
+ --terraform-state=local
+echo "172.18.1.100 nebari-sandbox.local" | tee -a /etc/hosts
+nebari deploy -c nebari-config.yaml --disable-prompt
 
   EOF
 }
