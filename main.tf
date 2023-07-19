@@ -56,7 +56,7 @@ resource "aws_security_group" "allow_ssh_home" {
 }
 
 # TODO - revise once all ports/protocols for Nebari resources are understood
-# Security group - allow all from user's home
+# Security group - allow all
 resource "aws_security_group" "allow_all_home" {
   name        = "allow_all_home"
   description = "Allow all ports/protocols from user home IP"
@@ -67,7 +67,9 @@ resource "aws_security_group" "allow_all_home" {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["${var.my_local_ip}/32"]
+    cidr_blocks      = ["0.0.0.0/0"]
+    #cidr_blocks = ["${var.my_local_ip}/32"]
+    ipv6_cidr_blocks = ["::/0"]
   }
 
   tags = {
@@ -167,6 +169,7 @@ server {
 }
 EOL
 rm /etc/nginx/sites-enabled/default
+echo "172.18.1.100 nebari.${var.my_route_53_domain}" | tee -a /etc/hosts
 systemctl start nginx
 
 # Install and Deploy Nebari
@@ -179,9 +182,12 @@ nebari init local \
  --domain nebari.${var.my_route_53_domain} \
  --auth-provider password \
  --terraform-state=local
-echo "172.18.1.100 nebari.${var.my_route_53_domain}" | tee -a /etc/hosts
-nebari deploy -c nebari-config.yaml --disable-prompt
+nebari deploy -c nebari-config.yaml --disable-prompt --disable-checks
 
+# Nginx needs a restart to route traffic successfully after the ingress is opened
+# This is one reason that --disable-checks flag is needed - Nebari won't be able to
+# talk to itself mid-deployment
+systemctl restart nginx.service
   EOF
 }
 
