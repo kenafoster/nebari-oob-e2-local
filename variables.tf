@@ -39,7 +39,7 @@ variable "nebari_ec2_size" {
 variable "nebari_disk_size" {
   description = "Set root disk size for Nebari sandbox (in GiB)"
   type        = string
-  default     = "16"
+  default     = "100"
 }
 
 variable "aws_cli_profile" {
