@@ -84,9 +84,9 @@ data "aws_ami" "ubuntu" {
 
   filter {
     name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
   }
-
+  
   filter {
     name   = "virtualization-type"
     values = ["hvm"]
@@ -113,7 +113,7 @@ resource "aws_instance" "nebari_sandbox_ec2" {
     volume_size           = var.nebari_disk_size
   }
 
-  # User data - install Docker
+  # User data - install Docker, clone repos, upgrade dependencies
   user_data = <<EOF
 #!/bin/bash
 apt-get update
@@ -129,5 +129,18 @@ apt-get update
 apt-get -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 usermod -a -G docker ubuntu
 
-  EOF
+# clone repos
+
+for REPO in ${var.git_repos}
+do
+  runuser -l ubuntu -c "git clone $REPO"
+done
+
+# Add pip and upgrade dependencies
+apt-get -y install python3-pip
+pip install pip==23.2
+pip install pyopenssl --upgrade
+pip install requests --upgrade
+
+EOF
 }

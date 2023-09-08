@@ -25,8 +25,8 @@ variable "region" {
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
-# REQUIRED PARAMETERS
-# These parameters must be supplied when consuming this module.
+# OPTIONAL PARAMETERS
+# These parameters have reasonable defaults.
 # ---------------------------------------------------------------------------------------------------------------------
 
 
@@ -47,3 +47,10 @@ variable "aws_cli_profile" {
   type        = string
   default     = "default"
 }
+
+variable "git_repos" {
+  description = "Repositories to clone on init."
+  type        = string
+  default     = ""
+}
+
