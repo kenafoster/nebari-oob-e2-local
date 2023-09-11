@@ -3,6 +3,10 @@
 # These parameters must be supplied when consuming this module.
 # ---------------------------------------------------------------------------------------------------------------------
 
+variable "my_route_53_domain" {
+  description = "Domain name configured in Route 53 (or other) with A record for Elastic IP."
+  type        = string
+}
 
 variable "my_local_ip" {
   description = "Public IP address where the user is working (for opening up security groups)."
