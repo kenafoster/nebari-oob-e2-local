@@ -157,11 +157,12 @@ rm /etc/nginx/sites-enabled/default
 echo "172.18.1.100 nebari2.${var.my_route_53_domain}" | tee -a /etc/hosts
 systemctl start nginx
 
-# Install and Deploy Nebari
+# Install and Deploy Dependencies and MLFlow
 apt-get -y install python3-pip
 pip install pip==23.2
 pip install pyopenssl --upgrade
 pip install requests --upgrade
+pip install nebari-plugin-label-studio-chart
 EOF
 }
 resource "aws_route53_record" "nebari" {
