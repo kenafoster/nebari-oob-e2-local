@@ -137,10 +137,37 @@ do
 done
 
 # Add pip and upgrade dependencies
+# Install and configure Nginx
+
+apt-get -y install nginx
+mkdir /etc/nginx/certs
+openssl req -new -x509 -days 90 -newkey rsa:4096 -sha512 -subj "/C=US/ST=DC/L=Washington/O=Nebari/CN=nebari2.${var.my_route_53_domain}"  -nodes -out /etc/nginx/certs/nginx.crt -keyout /etc/nginx/certs/nginx.key
+cat > /etc/nginx/sites-enabled/nebari << EOL
+server {
+  listen 443 ssl;
+  ssl_certificate /etc/nginx/certs/nginx.crt;
+  ssl_certificate_key /etc/nginx/certs/nginx.key;
+  server_name nebari2.${var.my_route_53_domain};
+  location / {
+    proxy_pass https://nebari2.kflabs.click;
+  }
+}
+
+rm /etc/nginx/sites-enabled/default
+echo "172.18.1.100 nebari2.${var.my_route_53_domain}" | tee -a /etc/hosts
+systemctl start nginx
+
+# Install and Deploy Nebari
 apt-get -y install python3-pip
 pip install pip==23.2
 pip install pyopenssl --upgrade
 pip install requests --upgrade
-
 EOF
+}
+resource "aws_route53_record" "nebari" {
+  zone_id = data.aws_route53_zone.my_zone.zone_id
+  name    = "nebari2"
+  type    = "A"
+  ttl     = 300
+  records = [aws_eip.nebari_sandbox_eip.public_ip]
 }
