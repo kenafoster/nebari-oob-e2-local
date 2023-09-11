@@ -105,9 +105,9 @@ data "aws_ami" "ubuntu" {
 
   filter {
     name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
   }
-
+  
   filter {
     name   = "virtualization-type"
     values = ["hvm"]
@@ -134,7 +134,7 @@ resource "aws_instance" "nebari_sandbox_ec2" {
     volume_size           = var.nebari_disk_size
   }
 
-  # User data - install Docker and Nebari
+# User data - install Docker, clone repos, upgrade dependencies
   user_data = <<EOF
 #!/bin/bash
 
@@ -152,43 +152,42 @@ apt-get update
 apt-get -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 usermod -a -G docker ubuntu
 
-# Install and configure Nginx
 
+# clone repos
+
+for REPO in ${var.git_repos}
+do
+  runuser -l ubuntu -c "git clone $REPO"
+done
+
+# Install and configure Nginx
 apt-get -y install nginx
 mkdir /etc/nginx/certs
-openssl req -new -x509 -days 90 -newkey rsa:4096 -sha512 -subj "/C=US/ST=DC/L=Washington/O=Nebari/CN=nebari.${var.my_route_53_domain}"  -nodes -out /etc/nginx/certs/nginx.crt -keyout /etc/nginx/certs/nginx.key
+openssl req -new -x509 -days 90 -newkey rsa:4096 -sha512 -subj "/C=US/ST=DC/L=Washington/O=Nebari/CN=nebari2.${var.my_route_53_domain}"  -nodes -out /etc/nginx/certs/nginx.crt -keyout /etc/nginx/certs/nginx.key
+
 cat > /etc/nginx/sites-enabled/nebari << EOL
 server {
   listen 443 ssl;
   ssl_certificate /etc/nginx/certs/nginx.crt;
   ssl_certificate_key /etc/nginx/certs/nginx.key;
-  server_name nebari.${var.my_route_53_domain};
+  server_name nebari2.${var.my_route_53_domain};
   location / {
     proxy_pass https://nebari.kflabs.click;
   }
 }
 EOL
+
 rm /etc/nginx/sites-enabled/default
 echo "172.18.1.100 nebari.${var.my_route_53_domain}" | tee -a /etc/hosts
 systemctl start nginx
 
-# Install and Deploy Nebari
+# Install and Deploy Dependencies and MLFlow
 apt-get -y install python3-pip
-python3 -m pip install nebari
-mkdir nebari-local
-cd nebari-local
-nebari init local \
- --project sandbox-nebari \
- --domain nebari.${var.my_route_53_domain} \
- --auth-provider password \
- --terraform-state=local
-nebari deploy -c nebari-config.yaml --disable-prompt --disable-checks
-
-# Nginx needs a restart to route traffic successfully after the ingress is opened
-# This is one reason that --disable-checks flag is needed - Nebari won't be able to
-# talk to itself mid-deployment
-systemctl restart nginx.service
-  EOF
+pip install pip==23.2
+pip install pyopenssl --upgrade
+pip install requests --upgrade
+pip install nebari-plugin-label-studio-chart
+EOF
 }
 
 # Create Elastic IP to associate with Nebari Sandbox EC2
@@ -205,7 +204,9 @@ data "aws_route53_zone" "my_zone" {
 resource "aws_route53_record" "nebari" {
   zone_id = data.aws_route53_zone.my_zone.zone_id
   name    = "nebari"
-  type    = "A"
-  ttl     = 300
-  records = [aws_eip.nebari_sandbox_eip.public_ip]
+=======
+  server_name nebari2.${var.my_route_53_domain};
+  location / {
+    proxy_pass https://nebari2.kflabs.click;
+  }
 }
